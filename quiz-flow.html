@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Edunovaq - Quiz</title>
+    <link rel="icon" type="image/webp" href="1.webp">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard-styles.css">
+    <style>
+        .quiz-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 30px;
+            border-radius: 20px;
+        }
+
+        .question-text {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 15px 20px;
+            text-align: left;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 16px;
+        }
+
+        .option-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #C5A668;
+        }
+
+        .option-btn.correct {
+            background: rgba(46, 204, 113, 0.2);
+            border-color: #2ecc71;
+            color: #2ecc71;
+        }
+
+        .option-btn.wrong {
+            background: rgba(231, 76, 60, 0.2);
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
+
+        .next-btn-container {
+            margin-top: 30px;
+            text-align: right;
+            display: none;
+        }
+
+        .score-board {
+            text-align: center;
+            font-size: 28px;
+            color: #C5A668;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="sidebar glass-style">
+        <div class="brand">
+            <div class="icon-container">
+                <img src="logo.png" alt="Edunovaq Logo"
+                    style="width: 35px; height: 35px; object-fit: contain; border-radius: 50%;">
+            </div>
+            <span class="nav-text brand-text">Edunovaq</span>
+        </div>
+        <ul class="nav-list">
+            <li class="nav-item"><a href="dashboard.html" class="nav-link">
+                    <div class="icon-container"><i class="fa-solid fa-house"></i></div><span
+                        class="nav-text">Dashboard</span>
+                </a></li>
+            <li class="nav-item"><a href="focus.html" class="nav-link">
+                    <div class="icon-container"><i class="fa-solid fa-bullseye"></i></div><span
+                        class="nav-text">Focus</span>
+                </a></li>
+            <li class="nav-item"><a href="ai-tools.html" class="nav-link">
+                    <div class="icon-container"><i class="fa-solid fa-robot"></i></div><span class="nav-text">AI
+                        Tools</span>
+                </a></li>
+            <li class="nav-item"><a href="group-study.html" class="nav-link">
+                    <div class="icon-container"><i class="fa-solid fa-users"></i></div><span class="nav-text">Group
+                        Study</span>
+                </a></li>
+            <li class="nav-item"><a href="tools.html" class="nav-link active">
+                    <div class="icon-container"><i class="fa-solid fa-toolbox"></i></div><span
+                        class="nav-text">Tools</span>
+                </a></li>
+        </ul>
+        <ul class="nav-list bottom-menu">
+            <li class="nav-item"><a href="settings.html" class="nav-link">
+                    <div class="icon-container"><i class="fa-solid fa-gear"></i></div><span
+                        class="nav-text">Settings</span>
+                </a></li>
+            <li class="nav-item"><a href="#" class="nav-link" onclick="logout()">
+                    <div class="icon-container"><i class="fa-solid fa-right-from-bracket"></i></div><span
+                        class="nav-text">Logout</span>
+                </a></li>
+        </ul>
+    </nav>
+
+    <main class="main-container">
+        <header class="top-header" style="justify-content: space-between; width: 100%;">
+            <div class="global-back-btn" style="display: flex; align-items: center; gap: 12px; cursor: pointer;"
+                onclick="window.location.href='/quizdashboardpage'">
+                <i class="fa-solid fa-arrow-left" style="font-size: 22px;"></i>
+                <h1 class="page-title" style="margin-bottom: 0;" id="quiz-title">Quiz</h1>
+            </div>
+        </header>
+
+        <div class="quiz-container glass-style" id="quiz-box">
+            <div id="loading-msg" style="text-align:center; opacity:0.6;">Loading your questions...</div>
+            <div id="quiz-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; opacity: 0.7;">
+                    <span id="q-counter">Question 1/X</span>
+                    <span>Score: <span id="score-display">0</span></span>
+                </div>
+                <div class="question-text" id="q-text">...</div>
+                <div class="options-grid" id="options-box"></div>
+                <div class="next-btn-container" id="next-box">
+                    <button class="card-btn" onclick="nextQuestion()">Next Question <i
+                            class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+            <div class="score-board" id="final-score"></div>
+        </div>
+    </main>
+
+    <script>
+        let currentData = [];
+        let currentIndex = 0;
+        let score = 0;
+
+        async function initQuiz() {
+            const userId = localStorage.getItem('user_id') || JSON.parse(localStorage.getItem('user') || '{}').id;
+            const subject = localStorage.getItem('selectedQuizSubject') || 'Mathematics';
+
+            document.getElementById('quiz-title').innerText = `${subject} Quiz`;
+
+            try {
+                // THE FIX: Uses unified gamification API
+                const response = await fetch(`/api/gamification-data/${userId}/${subject}/quiz`);
+                const data = await response.json();
+
+                if (data.status === "success" && data.data.length > 0) {
+                    currentData = data.data; // THE FIX: Accesses .data instead of .questions
+                    document.getElementById('loading-msg').style.display = 'none';
+                    document.getElementById('quiz-content').style.display = 'block';
+                    loadQuestion();
+                } else {
+                    document.getElementById('loading-msg').innerText = "No questions found for this subject yet.";
+                }
+            } catch (err) {
+                document.getElementById('loading-msg').innerText = "Error loading quiz. Please try again.";
+            }
+        }
+
+        function loadQuestion() {
+            const qData = currentData[currentIndex];
+            document.getElementById('q-counter').innerText = `Question ${currentIndex + 1} of ${currentData.length}`;
+            document.getElementById('q-text').innerText = qData.q;
+            document.getElementById('next-box').style.display = 'none';
+
+            const optionsBox = document.getElementById('options-box');
+            optionsBox.innerHTML = '';
+
+            qData.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(idx, qData.answer, btn);
+                optionsBox.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIdx, correctIdx, btnElement) {
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(btn => btn.onclick = null); // Disable further clicks
+
+            if (selectedIdx === correctIdx) {
+                btnElement.classList.add('correct');
+                score++;
+                document.getElementById('score-display').innerText = score;
+            } else {
+                btnElement.classList.add('wrong');
+                buttons[correctIdx].classList.add('correct');
+            }
+
+            document.getElementById('next-box').style.display = 'block';
+        }
+
+        function nextQuestion() {
+            currentIndex++;
+            if (currentIndex < currentData.length) {
+                loadQuestion();
+            } else {
+                document.getElementById('quiz-content').style.display = 'none';
+                const finalBoard = document.getElementById('final-score');
+                finalBoard.style.display = 'block';
+                finalBoard.innerHTML = `Quiz Complete!<br><span style="color:#fff; font-size:20px;">You scored ${score} out of ${currentData.length}</span><br><br><button class="card-btn" onclick="window.location.href='/quizdashboardpage'">Back to Dashboard</button>`;
+            }
+        }
+
+        initQuiz();
+    </script>
+</body>
+
+</html>
