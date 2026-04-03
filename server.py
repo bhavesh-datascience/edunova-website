@@ -553,15 +553,17 @@ def fetch_transcript_ytdlp(video_url):
         'no_warnings': True
     }
 
+    # ADDED: Tell yt-dlp to use cookies to bypass bot detection
+    if os.path.exists('cookies.txt'):
+        ydl_opts['cookiefile'] = 'cookies.txt'
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
             
-            # yt-dlp stores all available formats in lists under 'subtitles' and 'automatic_captions'
             manual_subs = info.get('subtitles') or {}
             auto_subs = info.get('automatic_captions') or {}
             
-            # Find English subtitle formats (can be 'en', 'en-US', 'en-GB')
             en_formats = None
             for lang_dict in (manual_subs, auto_subs):
                 for lang, formats in lang_dict.items():
@@ -574,14 +576,15 @@ def fetch_transcript_ytdlp(video_url):
             if not en_formats:
                 return None, "No English subtitles found for this video."
             
-            # Find the URL for the 'json3' format (this is the easiest format to parse)
             sub_url = next((fmt.get('url') for fmt in en_formats if fmt.get('ext') == 'json3'), None)
             
             if not sub_url:
                 return None, "Could not extract a readable JSON3 subtitle format."
 
-            # Fetch and parse the subtitles
-            sub_response = requests.get(sub_url, timeout=10)
+            # ADDED: Pass the cookies to our requests.get call as well just to be safe
+            req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            
+            sub_response = requests.get(sub_url, headers=req_headers, timeout=10)
             sub_data = sub_response.json()
             
             events = sub_data.get('events', [])
@@ -592,7 +595,6 @@ def fetch_transcript_ytdlp(video_url):
                     for seg in event['segs']:
                         text_parts.append(seg.get('utf8', ''))
             
-            # Clean up the final text (remove linebreaks and duplicate spaces)
             final_text = "".join(text_parts).replace('\n', ' ').strip()
             final_text = re.sub(r'\s+', ' ', final_text)
             
