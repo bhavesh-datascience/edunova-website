@@ -16,3 +16,5 @@ requests[socks]
 pysocks
 httpx 
 beautifulsoup4
+yt-dlp 
+requests
