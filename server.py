@@ -550,16 +550,22 @@ def fetch_transcript_ytdlp(video_url):
         'writeautomaticsub': True,
         'subtitleslangs': ['en'],
         'quiet': True,
-        'no_warnings': True
+        'no_warnings': True,
+        # --- ADDED THESE TWO LINES TO PREVENT FORMAT CRASHES ---
+        'ignoreerrors': True, 
+        'format': 'best' 
     }
 
-    # ADDED: Tell yt-dlp to use cookies to bypass bot detection
     if os.path.exists('cookies.txt'):
         ydl_opts['cookiefile'] = 'cookies.txt'
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
+            
+            # If ignoreerrors is True, info might be None if the whole extraction failed
+            if not info:
+                return None, "Failed to extract video information."
             
             manual_subs = info.get('subtitles') or {}
             auto_subs = info.get('automatic_captions') or {}
@@ -581,9 +587,7 @@ def fetch_transcript_ytdlp(video_url):
             if not sub_url:
                 return None, "Could not extract a readable JSON3 subtitle format."
 
-            # ADDED: Pass the cookies to our requests.get call as well just to be safe
             req_headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-            
             sub_response = requests.get(sub_url, headers=req_headers, timeout=10)
             sub_data = sub_response.json()
             
@@ -602,7 +606,6 @@ def fetch_transcript_ytdlp(video_url):
 
     except Exception as e:
         return None, f"yt-dlp extraction failed: {str(e)}"
-
 @app.post("/api/youtube-summarize")
 def summarize_youtube_video(request: YouTubeRequest):
     try:
